@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 
-from bert_base_model import BaseModel
+from albert_base_model import BaseModel
 from transformers import AutoConfig, AutoModel, BertModel
 from torchcrf import CRF
 import config
