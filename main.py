@@ -5,9 +5,8 @@ import torch
 from utils import commonUtils, metricsUtils, decodeUtils, trainUtils
 import config
 import dataset
-# 引入 AlbertNerModel
 from preprocess import BertFeature
-import albert_ner_model  # 这里你需要导入 AlbertNerModel
+import albert_ner_model  # 使用AlbertNerModel
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import AlbertTokenizer  # 使用 AlbertTokenizer
 from tensorboardX import SummaryWriter
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 special_model_list = ['bilstm', 'crf', 'idcnn']
 
 if args.use_tensorboard == "True":
-  writer = SummaryWriter(log_dir='./tensorboard')
+    writer = SummaryWriter(log_dir='./tensorboard')
 
 class AlbertForNer:
     def __init__(self, args, train_loader, dev_loader, test_loader, idx2tag):
@@ -53,6 +52,7 @@ class AlbertForNer:
                 for key in batch_data.keys():
                     if key != 'texts':
                         batch_data[key] = batch_data[key].to(self.device)
+
                 loss, logits = self.model(batch_data['token_ids'], batch_data['attention_masks'], batch_data['token_type_ids'], batch_data['labels'])
 
                 loss.backward()
