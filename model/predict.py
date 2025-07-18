@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import json
 from utils import commonUtils, metricsUtils, decodeUtils, trainUtils
-import bert_ner_model
+from albertcrf-model import AlbertNerModel
 from transformers import AlbertTokenizer  # 修改为 AlbertTokenizer
 from collections import defaultdict
 
