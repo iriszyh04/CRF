@@ -215,8 +215,14 @@ if __name__ == '__main__':
 
     # 使用修改后的 AlbertForNer
     if data_name == "cner":
-        args.data_dir = r"C:\Users\Administrator\代码项目\CNER命名实体识别数据集"
-        data_path = os.path.join(args.data_dir, 'final_data')
+        import os
+
+# 获取当前文件夹的绝对路径
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+
+# 使用相对路径
+        args.data_dir = os.path.join(base_dir, 'final_data')
+
        
         train_features, train_callback_info = commonUtils.read_pkl(data_path, 'train')
         train_dataset = dataset.NerDataset(train_features)
