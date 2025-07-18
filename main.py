@@ -215,25 +215,9 @@ if __name__ == '__main__':
 
     # 使用修改后的 AlbertForNer
     if data_name == "cner":
-        args.data_dir = './data/cner'
+        args.data_dir = r"C:\Users\Administrator\代码项目\CNER命名实体识别数据集"
         data_path = os.path.join(args.data_dir, 'final_data')
-        other_path = os.path.join(args.data_dir, 'mid_data')
-        ent2id_dict = commonUtils.read_json(other_path, 'nor_ent2id')
-        label_list = commonUtils.read_json(other_path, 'labels')
-        label2id = {}
-        id2label = {}
-        for k,v in enumerate(label_list):
-            label2id[v] = k
-            id2label[k] = v
-        query2id = {}
-        id2query = {}
-        for k, v in ent2id_dict.items():
-            query2id[k] = v
-            id2query[v] = k
-        logger.info(id2query)
-        args.num_tags = len(ent2id_dict)
-        logger.info(args)
-
+       
         train_features, train_callback_info = commonUtils.read_pkl(data_path, 'train')
         train_dataset = dataset.NerDataset(train_features)
         train_sampler = RandomSampler(train_dataset)
