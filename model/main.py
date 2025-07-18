@@ -6,7 +6,7 @@ from utils import commonUtils, metricsUtils, decodeUtils, trainUtils
 import config
 import dataset
 from preprocess import BertFeature
-import albert_ner_model  # 使用AlbertNerModel
+from albertcrf-model import AlbertNerModel  # 使用AlbertNerModel
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import AlbertTokenizer  # 使用 AlbertTokenizer
 from tensorboardX import SummaryWriter
