@@ -5,7 +5,8 @@ from transformers import AutoModel  # 只需要导入 AutoModel
 class BaseModel(nn.Module):
     def __init__(self, bert_dir, dropout_prob, model_name=""):
         super(BaseModel, self).__init__()
-        config_path = os.path.join(bert_dir, 'config.json')
+        current_dir = os.path.dirname(__file__)  # 获取当前文件(BaseModel.py)的目录
+        config_path = os.path.join(current_dir, '../albert_model/config.json')  # 构建相对路径
 
         assert os.path.exists(bert_dir) and os.path.exists(config_path), \
             'pretrained model file does not exist'
@@ -30,3 +31,4 @@ class BaseModel(nn.Module):
                 elif isinstance(module, nn.LayerNorm):
                     nn.init.ones_(module.weight)
                     nn.init.zeros_(module.bias)
+
