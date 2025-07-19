@@ -5,12 +5,11 @@ import torch
 from utils import commonUtils, metricsUtils, decodeUtils, trainUtils
 import config
 import dataset
-from preprocess import BertFeature
-from albertcrf_model import AlbertNerModel  # 使用AlbertNerModel
+import albertcrf_model  # 使用AlbertNerModel
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import AlbertTokenizer  # 使用 AlbertTokenizer
 from tensorboardX import SummaryWriter
-
+project_root = os.path.abspath('C:/Users/J/Desktop/try/CRF')
 if torch.__version__.startswith("2."):
     import torch._dynamo
     torch._dynamo.config.suppress_errors = True
@@ -20,7 +19,7 @@ commonUtils.set_seed(args.seed)
 logger = logging.getLogger(__name__)
 
 special_model_list = ['bilstm', 'crf', 'idcnn']
-
+tensorboard_log_dir = os.path.join(project_root, 'tensorboard')
 if args.use_tensorboard == "True":
     writer = SummaryWriter(log_dir='./tensorboard')
 
@@ -32,7 +31,7 @@ class AlbertForNer:
         self.args = args
         self.idx2tag = idx2tag
         # 使用 AlbertNerModel 代替 BertNerModel
-        model = albert_ner_model.AlbertNerModel(args)
+        model = albertcrf_model.AlbertNerModel(args)
         self.model, self.device = trainUtils.load_model_and_parallel(model, args.gpu_ids)
         self.model.to(self.device)
         if torch.__version__.startswith("2."):
@@ -112,7 +111,7 @@ class AlbertForNer:
             return tot_dev_loss, mirco_metrics[0], mirco_metrics[1], mirco_metrics[2]
 
     def test(self, model_path, test_callback_info=None):
-        model = albert_ner_model.AlbertNerModel(self.args)
+        model = albertcrf_model.AlbertNerModel(self.args)
         model, device = trainUtils.load_model_and_parallel(model, self.args.gpu_ids, model_path)
         model.to(device)
         model.eval()
@@ -148,7 +147,7 @@ class AlbertForNer:
             logger.info(metricsUtils.classification_report(role_metric, label_list, id2label, total_count))
 
     def predict(self, raw_text, model_path):
-        model = albert_ner_model.AlbertNerModel(self.args)
+        model = albertcrf_model.AlbertNerModel(self.args)
         model, device = trainUtils.load_model_and_parallel(model, self.args.gpu_ids, model_path)
         model.to(device)
         model.eval()
@@ -215,15 +214,25 @@ if __name__ == '__main__':
 
     # 使用修改后的 AlbertForNer
     if data_name == "cner":
-        import os
+        args.data_dir = './data/cner'
+        data_path = os.path.join(args.data_dir, 'final_data')
 
-# 获取当前文件夹的绝对路径
-        base_dir = os.path.abspath(os.path.dirname(__file__))
+        ent2id_dict = commonUtils.read_json(other_path, 'nor_ent2id')
+        label_list = commonUtils.read_json(other_path, 'labels')
+        label2id = {}
+        id2label = {}
+        for k, v in enumerate(label_list):
+            label2id[v] = k
+            id2label[k] = v
+        query2id = {}
+        id2query = {}
+        for k, v in ent2id_dict.items():
+            query2id[k] = v
+            id2query[v] = k
+        logger.info(id2query)
+        args.num_tags = len(ent2id_dict)
+        logger.info(args)
 
-# 使用相对路径
-        args.data_dir = os.path.join(base_dir, 'final_data')
-
-       
         train_features, train_callback_info = commonUtils.read_pkl(data_path, 'train')
         train_dataset = dataset.NerDataset(train_features)
         train_sampler = RandomSampler(train_dataset)
@@ -239,16 +248,11 @@ if __name__ == '__main__':
         test_features, test_callback_info = commonUtils.read_pkl(data_path, 'test')
         test_dataset = dataset.NerDataset(test_features)
         test_loader = DataLoader(dataset=test_dataset,
-                                batch_size=args.eval_batch_size,
-                                num_workers=2)
+                                 batch_size=args.eval_batch_size,
+                                 num_workers=2)
 
+        # 将配置参数都保存下来
         commonUtils.save_json('./checkpoints/{}_{}/'.format(model_name, args.data_name), vars(args), 'args')
-        albertForNer = AlbertForNer(args, train_loader, dev_loader, test_loader, id2query)
-        albertForNer.train()
+        AlbertForNer = AlbertForNer(args, train_loader, dev_loader, test_loader, id2query)
+        AlbertForNer.train()
 
-        model_path = './checkpoints/{}_{}/model.pt'.format(model_name, args.data_name)
-        albertForNer.test(model_path, test_callback_info)
-
-        raw_text = "虞兔良先生：1963年12月出生，汉族，中国国籍，无境外永久居留权，浙江绍兴人，中共党员，MBA，经济师。"
-        logger.info(raw_text)
-        albertForNer.predict(raw_text, model_path)
