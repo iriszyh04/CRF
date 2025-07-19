@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
-from preprocess import BertFeature  # 这里假设 BertFeature 仍然是用于处理 ALBERT 数据的功能
 from utils import commonUtils
 
 
