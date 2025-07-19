@@ -1,9 +1,8 @@
 import os
 import json
 import logging
-from transformers import AlbertTokenizer  # 使用ALBERT的Tokenizer
+from transformers import AlbertTokenizer  # 修改为ALBERT的Tokenizer
 from utils import cutSentences, commonUtils
-import config
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ class BaseFeature:
         self.attention_masks = attention_masks
         self.token_type_ids = token_type_ids
 
-class AlbertFeature(BaseFeature):  # 使用AlbertFeature
+class AlbertFeature(BaseFeature):  # 修改为AlbertFeature
     def __init__(self, token_ids, attention_masks, token_type_ids, labels=None):
         super(AlbertFeature, self).__init__(
             token_ids=token_ids,
@@ -65,7 +64,7 @@ class NerProcessor:
                                              labels=labels))
         return examples
 
-def convert_bert_example(ex_idx, example: InputExample, tokenizer: AlbertTokenizer,  # 使用AlbertTokenizer
+def convert_bert_example(ex_idx, example: InputExample, tokenizer: AlbertTokenizer,  # 修改为AlbertTokenizer
                          max_seq_len, ent2id, labels):
     set_type = example.set_type
     raw_text = example.text
@@ -117,7 +116,7 @@ def convert_bert_example(ex_idx, example: InputExample, tokenizer: AlbertTokeniz
     attention_masks = encode_dict['attention_mask']
     token_type_ids = encode_dict['token_type_ids']
 
-    feature = AlbertFeature(  # 使用AlbertFeature
+    feature = AlbertFeature(  # 修改为AlbertFeature
         token_ids=token_ids,
         attention_masks=attention_masks,
         token_type_ids=token_type_ids,
@@ -126,8 +125,8 @@ def convert_bert_example(ex_idx, example: InputExample, tokenizer: AlbertTokeniz
 
     return feature, callback_info
 
-def convert_examples_to_features(examples, max_seq_len, albert_dir, ent2id, labels):  # 使用albert_dir
-    tokenizer = AlbertTokenizer(os.path.join(albert_dir, 'vocab.txt'))  # 使用AlbertTokenizer
+def convert_examples_to_features(examples, max_seq_len, albert_dir, ent2id, labels):  # 修改为albert_dir
+    tokenizer = AlbertTokenizer(os.path.join(albert_dir, 'vocab.txt'))  # 修改为AlbertTokenizer
     features = []
     callback_info = []
 
@@ -163,3 +162,4 @@ def get_data(processor, raw_data_path, json_file, mode, ent2id, labels, args):
         os.makedirs(save_path)
     commonUtils.save_pkl(save_path, data, mode)
     return data
+
