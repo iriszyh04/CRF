@@ -14,7 +14,7 @@ from tensorboardX import SummaryWriter
 project_root = os.path.abspath('..')  # 返回当前文件夹的父目录（即CRF-main文件夹）
 
 # 使用相对路径引用 final_data 文件夹
-data_path = os.path.join(project_root, 'final_data')
+data_path = os.path.join(project_root, 'final data')
 other_path = os.path.join(project_root, 'mid_data')
 # Tensorboard 日志目录
 tensorboard_log_dir = os.path.join(project_root, 'tensorboard')
