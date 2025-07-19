@@ -9,19 +9,29 @@ import albertcrf_model  # 使用AlbertNerModel
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import AlbertTokenizer  # 使用 AlbertTokenizer
 from tensorboardX import SummaryWriter
-project_root = os.path.abspath('C:/Users/J/Desktop/try/CRF')
+
+# 获取项目根目录的绝对路径
+project_root = os.path.abspath('..')  # 返回当前文件夹的父目录（即CRF-main文件夹）
+
+# 使用相对路径引用 final_data 文件夹
+data_path = os.path.join(project_root, 'final data')
+
+# Tensorboard 日志目录
+tensorboard_log_dir = os.path.join(project_root, 'tensorboard')
 if torch.__version__.startswith("2."):
     import torch._dynamo
     torch._dynamo.config.suppress_errors = True
-    
+
+# 解析配置参数
 args = config.Args().get_parser()
 commonUtils.set_seed(args.seed)
 logger = logging.getLogger(__name__)
 
 special_model_list = ['bilstm', 'crf', 'idcnn']
-tensorboard_log_dir = os.path.join(project_root, 'tensorboard')
+
+# 设置 Tensorboard
 if args.use_tensorboard == "True":
-    writer = SummaryWriter(log_dir='./tensorboard')
+    writer = SummaryWriter(log_dir=tensorboard_log_dir)
 
 class AlbertForNer:
     def __init__(self, args, train_loader, dev_loader, test_loader, idx2tag):
@@ -30,7 +40,6 @@ class AlbertForNer:
         self.test_loader = test_loader
         self.args = args
         self.idx2tag = idx2tag
-        # 使用 AlbertNerModel 代替 BertNerModel
         model = albertcrf_model.AlbertNerModel(args)
         self.model, self.device = trainUtils.load_model_and_parallel(model, args.gpu_ids)
         self.model.to(self.device)
@@ -215,7 +224,7 @@ if __name__ == '__main__':
     # 使用修改后的 AlbertForNer
     if data_name == "cner":
         args.data_dir = './data/cner'
-        data_path = os.path.join(args.data_dir, 'final_data')
+        data_path = os.path.join(project_root, 'final data')
 
         ent2id_dict = commonUtils.read_json(other_path, 'nor_ent2id')
         label_list = commonUtils.read_json(other_path, 'labels')
@@ -255,4 +264,3 @@ if __name__ == '__main__':
         commonUtils.save_json('./checkpoints/{}_{}/'.format(model_name, args.data_name), vars(args), 'args')
         AlbertForNer = AlbertForNer(args, train_loader, dev_loader, test_loader, id2query)
         AlbertForNer.train()
-
