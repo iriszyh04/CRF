@@ -138,28 +138,46 @@ python src/predict.py \\
 ## 项目结构（需要具体修改）
 ```
 项目仓库名/
-├── data/               # 数据存储目录
-│   ├── train.txt       # 训练数据
-│   ├── dev.txt         # 验证数据
-│   └── test.txt        # 测试数据
-├── models/             # 模型保存目录
-├── src/                # 源代码目录
-│   ├── data\_process/   # 数据预处理模块
-│   │   ├── \_\_init\_\_.py
-│   │   ├── loader.py   # 数据加载与格式校验
-│   │   └── feature.py  # 特征提取（如词性/上下文特征）
-│   ├── model/          # 模型模块
-│   │   ├── \_\_init\_\_.py
-│   │   └── crf.py      # CRF模型定义与训练逻辑
-│   ├── train.py        # 训练入口脚本
-│   └── predict.py      # 预测入口脚本
-├── results/            # 预测结果存储目录
-├── docs/               # 技术文档目录
-│   ├── feature\_list.md # 特征工程说明
-│   └── model\_params.md # 模型参数调优记录
-├── requirements.txt    # 运行环境依赖
-├── requirements-dev.txt # 开发环境依赖
-└── README.md           # 项目说明文档
+├── mid_data/                # 数据存储目录
+│   ├── cner_150_cut.txt            # 训练数据
+│   ├── dev.json                   # 验证数据
+│   ├── labels.json                #
+│   ├── nor_ent2id.json。           #
+│   ├── test.json                  #
+│   ├── train.json。               #
+│   └── train_aug.json             # 测试数据
+├── albert_model/                  #
+│   ├── config.json                #
+│   ├── gitattributes              #
+│   ├── special_tokens_map.json    #
+│   ├── vocab.txt                  #    
+├── model/                         # 源代码目录
+│   ├── logs/                      # 数据预处理模块
+│   │   ├── albert_base_model.py   # 
+│   │   ├── albertcrf_model.py     # 
+│   │   ├── config.py              # 
+│   │   ├── crf.py                 #
+│   │   ├── cut.py                 #
+│   │   ├── dataset.py             #
+│   │   ├── main.py                #
+│   │   ├── predict.py             #
+│   │   ├── predict_grcq.py        #
+│   │   ├── preprocess.py          #
+│   │   └── utils                  # 
+├── final data/                    #
+│   ├── dev.pkl                    #
+│   ├──test .pkl                   #
+│   ├──train.pkl                   #
+├── utils/                         # 
+│   ├── __init__.py                #
+│   ├── commonUtils.py             #
+│   ├── cutSentences.py            #
+│   ├── decodeUtils.py             #
+│   ├── metricsUtils.py            #
+│   └── trainUtils.py              # 
+├── requirements.txt               # 
+├── requirements-dev.txt           # 
+└── README.md                      # 
 ```
 
 ## 免责声明
