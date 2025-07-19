@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import json
 from utils import commonUtils, metricsUtils, decodeUtils, trainUtils
-from albertcrf-model import AlbertNerModel
+import albertcrf_model
 from transformers import AlbertTokenizer  # 修改为 AlbertTokenizer
 from collections import defaultdict
 
@@ -105,10 +105,13 @@ if __name__ == "__main__":
     
     # 使用 ALBERT 模型
     if args.model_name.split('_')[0] not in ['bilstm', 'crf', 'idcnn']:
-        model = bert_ner_model.BertNerModel(args)  # 如果使用 ALBERT，需要改成 ALBERT 对应的模型
+        # 执行不符合条件的处理逻辑
+        print(f"Model name {args.model_name} is invalid!")
     else:
-        model = bert_ner_model.NormalNerModel(args)
-    
+        # 执行符合条件的处理逻辑
+        print(f"Model name {args.model_name} is valid!")
+    model = albertcrf_model.AlbertNerModel(args)  # 如果使用 ALBERT，需要改成 ALBERT 对应的模型
+
     model, device = trainUtils.load_model_and_parallel(model, args.gpu_ids, model_path)
     
     raw_text = cut_sentences_main(raw_text, max_seq_len=args.max_seq_len-2)
