@@ -1,7 +1,0 @@
-mkdir utils
-
-touch utils/commonUtils.py
-touch utils/cutSentences.py
-touch utils/decodeUtils.py
-_init_.py
-touch utils/metricsUtils.py
