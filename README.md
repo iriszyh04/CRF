@@ -13,35 +13,17 @@
 - 探索特征工程对模型性能的影响（如词性、上下文窗口特征），为传统模型在 NER 中的应用提供参考。  
 - 提供轻量化训练/预测工具，支持小批量文本的实体识别。
   
-## 环境准备 （需要具体修改）
+## 环境准备 
 1. 克隆仓库到本地：​
 ```bash​
-git clone https://github.com/你的用户名/项目仓库名.git​
-cd 项目仓库名
+git clone https://github.com/iriszyh04/CRF.git​
+cd CRF
 ```
-2. 创建并激活虚拟环境（推荐）：
-```bash​
-\# 创建虚拟环境​
-python -m venv venv​
-​
-\# 激活环境（Linux/macOS）​
-source venv/bin/activate​
-​
-\# 激活环境（Windows）​
-.\venv\Scripts\activate
-```
-3.安装依赖库：
+
+2.安装依赖库：
 ```bash​
 pip install -r requirements.txt
 ```
-### 依赖清单说明&#xA;
-`requirements.txt`包含项目运行必需的库：
-*   `sklearn-crfsuite==0.3.6`：CRF 模型核心库
-*   `numpy>=1.20.0`：数值计算基础库
-*   `pandas>=1.3.0`：数据处理工具
-*   `jieba>=0.42.1`：中文分词与词性标注
-*   `joblib>=1.1.0`：模型序列化工具
-如需开发环境依赖（如代码格式化工具），可查看`requirements-dev.txt`。
 
 ## 数据准备 
 ### 数据格式&#xA;
@@ -78,14 +60,7 @@ pip install -r requirements.txt
 都 I-LOC
 ```
 
-### 数据目录结构&#xA;
-```
-data/
-├── train.txt  # 训练集
-└── test.txt   # 测试集
-```
-
-## 使用指南（需要具体修改）
+## 使用指南
 ### 模型训练&#xA;
 
 运行训练脚本，支持自定义参数配置：
@@ -93,19 +68,15 @@ data/
 python src/train.py \\
 &#x20; \--train\_path ./data/train.txt \\
 &#x20; \--model\_save\_path ./models/crf\_model.pkl \\
-&#x20; \--max\_iter 100 \\
-&#x20; \--c1 0.1 \\
-&#x20; \--c2 0.1
+&#x20; \--max\_iter 160 \\
 ```
 
 **参数说明**：
 *   `--train_path`：训练数据路径（必填）
 *   `--model_save_path`：模型保存路径（默认`./models/crf_model.pkl`）
-*   `--max_iter`：训练迭代次数（默认 100）
-*   `--c1`：L1 正则化系数（默认 0.1）
-*   `--c2`：L2 正则化系数（默认 0.1）
+*   `--max_iter`：训练迭代次数（默认 160）
   
-训练过程中会输出每轮迭代的损失值和验证集 F1 分数，最终模型保存至指定路径。
+训练过程中会输出每轮迭代的准确率、召回率和验证集 F1 分数，最终模型保存至指定路径。
 
 ### 实体预测&#xA;
 支持单句预测和批量预测两种模式：
@@ -135,49 +106,47 @@ python src/predict.py \\
 
 预测结果文件格式：每行对应输入句子的实体列表，格式为`实体文本:标签（起始位置-结束位置）`。
 
-## 项目结构（需要具体修改）
+## 项目结构
 ```
 项目仓库名/
-├── mid_data/                # 数据存储目录
-│   ├── cner_150_cut.txt            # 训练数据
-│   ├── dev.json                   # 验证数据
-│   ├── labels.json                #
-│   ├── nor_ent2id.json。           #
-│   ├── test.json                  #
-│   ├── train.json。               #
-│   └── train_aug.json             # 测试数据
-├── albert_model/                  #
-│   ├── config.json                #
-│   ├── gitattributes              #
-│   ├── special_tokens_map.json    #
-│   ├── vocab.txt                  #    
-├── model/                         # 源代码目录
-│   ├── logs/                      # 数据预处理模块
-│   │   ├── albert_base_model.py   # 
-│   │   ├── albertcrf_model.py     # 
-│   │   ├── config.py              # 
-│   │   ├── crf.py                 #
-│   │   ├── cut.py                 #
-│   │   ├── dataset.py             #
-│   │   ├── main.py                #
-│   │   ├── predict.py             #
-│   │   ├── predict_grcq.py        #
-│   │   ├── preprocess.py          #
-│   │   └── utils                  # 
-├── final data/                    #
-│   ├── dev.pkl                    #
-│   ├──test .pkl                   #
-│   ├──train.pkl                   #
-├── utils/                         # 
-│   ├── __init__.py                #
-│   ├── commonUtils.py             #
-│   ├── cutSentences.py            #
-│   ├── decodeUtils.py             #
-│   ├── metricsUtils.py            #
-│   └── trainUtils.py              # 
-├── requirements.txt               # 
-├── requirements-dev.txt           # 
-└── README.md                      # 
+├── mid_data/                
+│   ├── cner_150_cut.txt           
+│   ├── dev.json                  
+│   ├── labels.json                
+│   ├── nor_ent2id.json           
+│   ├── test.json                  
+│   ├── train.json               
+│   └── train_aug.json            
+├── albert_model/                  
+│   ├── config.json                
+│   ├── gitattributes              
+│   ├── special_tokens_map.json    
+│   ├── vocab.txt                    
+├── model/                         
+│   ├── logs/                      
+│   │   ├── albert_base_model.py   
+│   │   ├── albertcrf_model.py     
+│   │   ├── config.py              
+│   │   ├── crf.py                 
+│   │   ├── cut.py                 
+│   │   ├── dataset.py             
+│   │   ├── main.py                
+│   │   ├── predict.py             
+│   │   ├── predict_grcq.py        
+│   │   ├── preprocess.py          
+│   │   └── utils                   
+├── final data/                    
+│   ├── dev.pkl                    
+│   ├──test .pkl                   
+│   ├──train.pkl                   
+├── utils/                          
+│   ├── __init__.py               
+│   ├── commonUtils.py             
+│   ├── cutSentences.py            
+│   ├── decodeUtils.py             
+│   ├── metricsUtils.py            
+│   └── trainUtils.py               
+└── README.md                      
 ```
 
 ## 免责声明
