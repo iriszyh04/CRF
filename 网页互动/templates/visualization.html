@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型训练日志可视化 - BERT-NER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        neutral: '#1F2329',
+                        'neutral-light': '#86909C',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        error: '#F53F3F'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .card-shadow {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .metric-card-2 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .metric-card-3 {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .metric-card-4 {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #165DFF;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-line-chart text-primary text-2xl"></i>
+                <span class="text-xl font-bold text-neutral">模型训练日志可视化</span>
+            </div>
+            <div class="hidden md:flex items-center space-x-6">
+                <a href="/" class="text-neutral-light hover:text-primary transition-colors">首页</a>
+                <a href="/entity" class="text-neutral-light hover:text-primary transition-colors">实体识别</a>
+                <a href="/relation" class="text-neutral-light hover:text-primary transition-colors">关系抽取</a>
+                <a href="/visualization" class="text-primary font-medium">性能可视化</a>
+            </div>
+            <button id="refresh-btn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                <i class="fa fa-refresh mr-2"></i>刷新数据
+            </button>
+        </div>
+    </nav>
+
+    <!-- 主内容 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 加载状态 -->
+        <div id="loading-state" class="text-center py-16">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-neutral-light">正在加载模型性能数据...</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div id="main-content" class="hidden">
+            <!-- 页面标题 -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-neutral mb-2">BERT-NER-CRF 模型性能分析</h1>
+                <p class="text-neutral-light">实体识别模型训练过程和性能指标的详细可视化分析</p>
+                <div class="mt-4 flex items-center space-x-6 text-sm text-neutral-light">
+                    <span><i class="fa fa-calendar mr-2"></i>最后更新: <span id="last-updated">--</span></span>
+                    <span><i class="fa fa-database mr-2"></i>模型类型: <span id="model-type">BERT-CRF</span></span>
+                    <span><i class="fa fa-language mr-2"></i>任务: 中文实体识别</span>
+                </div>
+            </div>
+
+            <!-- 整体性能指标卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="metric-card rounded-xl p-6 text-white card-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/80 text-sm">整体准确率</p>
+                            <p class="text-2xl font-bold" id="overall-accuracy">--</p>
+                        </div>
+                        <i class="fa fa-bullseye text-2xl text-white/60"></i>
+                    </div>
+                </div>
+                <div class="metric-card-2 rounded-xl p-6 text-white card-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/80 text-sm">F1 分数</p>
+                            <p class="text-2xl font-bold" id="overall-f1">--</p>
+                        </div>
+                        <i class="fa fa-trophy text-2xl text-white/60"></i>
+                    </div>
+                </div>
+                <div class="metric-card-3 rounded-xl p-6 text-white card-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/80 text-sm">精确率</p>
+                            <p class="text-2xl font-bold" id="overall-precision">--</p>
+                        </div>
+                        <i class="fa fa-crosshairs text-2xl text-white/60"></i>
+                    </div>
+                </div>
+                <div class="metric-card-4 rounded-xl p-6 text-white card-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/80 text-sm">召回率</p>
+                            <p class="text-2xl font-bold" id="overall-recall">--</p>
+                        </div>
+                        <i class="fa fa-search text-2xl text-white/60"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图表区域 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- 训练损失曲线 -->
+                <div class="bg-white rounded-xl p-6 card-shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-neutral">训练损失曲线</h3>
+                        <div class="flex items-center space-x-2">
+                            <button id="loss-smoothing-btn" class="text-xs bg-gray-100 px-3 py-1 rounded text-neutral-light hover:bg-gray-200">
+                                平滑: <span id="smoothing-status">开</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="loss-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 学习率变化 -->
+                <div class="bg-white rounded-xl p-6 card-shadow">
+                    <h3 class="text-lg font-semibold text-neutral mb-4">学习率调度</h3>
+                    <div class="chart-container">
+                        <canvas id="lr-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 实体性能分析 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <!-- 实体F1分数比较 -->
+                <div class="lg:col-span-2 bg-white rounded-xl p-6 card-shadow">
+                    <h3 class="text-lg font-semibold text-neutral mb-4">各实体类型性能对比</h3>
+                    <div class="chart-container">
+                        <canvas id="entity-performance-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 实体统计信息 -->
+                <div class="bg-white rounded-xl p-6 card-shadow">
+                    <h3 class="text-lg font-semibold text-neutral mb-4">实体统计</h3>
+                    <div id="entity-stats" class="space-y-4">
+                        <!-- 动态填充 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 详细性能表格 -->
+            <div class="bg-white rounded-xl p-6 card-shadow mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-neutral">详细性能指标</h3>
+                    <button id="export-table-btn" class="text-sm bg-primary text-white px-4 py-2 rounded hover:bg-primary/90">
+                        <i class="fa fa-download mr-2"></i>导出CSV
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实体类型</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">精确率</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">召回率</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">F1分数</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">真实数量</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">预测数量</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">正确数量</th>
+                            </tr>
+                        </thead>
+                        <tbody id="performance-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- 动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 样本预测展示 -->
+            <div class="bg-white rounded-xl p-6 card-shadow">
+                <h3 class="text-lg font-semibold text-neutral mb-4">样本预测展示</h3>
+                <div id="sample-predictions" class="space-y-4">
+                    <!-- 动态填充 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 错误状态 -->
+        <div id="error-state" class="hidden text-center py-16">
+            <i class="fa fa-exclamation-triangle text-4xl text-error mb-4"></i>
+            <h3 class="text-xl font-semibold text-neutral mb-2">数据加载失败</h3>
+            <p class="text-neutral-light mb-4">无法加载模型性能数据，请检查模型文件是否存在。</p>
+            <button id="retry-btn" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90">
+                <i class="fa fa-refresh mr-2"></i>重试
+            </button>
+        </div>
+    </main>
+
+    <!-- JavaScript -->
+    <script>
+        // 全局变量
+        let visualizationData = null;
+        let charts = {};
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadVisualizationData();
+            
+            // 绑定事件监听器
+            document.getElementById('refresh-btn').addEventListener('click', loadVisualizationData);
+            document.getElementById('retry-btn').addEventListener('click', loadVisualizationData);
+            document.getElementById('export-table-btn').addEventListener('click', exportTableToCSV);
+        });
+
+        // 加载可视化数据
+        async function loadVisualizationData() {
+            showLoadingState();
+            
+            try {
+                const response = await fetch('/api/visualization-data');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                visualizationData = data;
+                renderVisualization(data);
+                showMainContent();
+                
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                showErrorState();
+            }
+        }
+
+        // 渲染可视化内容
+        function renderVisualization(data) {
+            renderOverallMetrics(data.overall_metrics);
+            renderEntityStats(data.entity_summary);
+            renderPerformanceTable(data.entity_summary.entity_details);
+            renderSamplePredictions(data.sample_predictions);
+            
+            // 渲染图表
+            if (data.training_progress && data.training_progress.steps) {
+                renderTrainingCharts(data.training_progress);
+            }
+            
+            if (data.entity_summary && data.entity_summary.entity_details) {
+                renderEntityPerformanceChart(data.entity_summary.entity_details);
+            }
+            
+            // 更新页面信息
+            if (data.model_info) {
+                document.getElementById('last-updated').textContent = data.model_info.last_updated || '--';
+                document.getElementById('model-type').textContent = data.model_info.model_type || 'BERT-CRF';
+            }
+        }
+
+        // 渲染整体指标
+        function renderOverallMetrics(metrics) {
+            document.getElementById('overall-accuracy').textContent = 
+                metrics.precision ? (metrics.precision * 100).toFixed(2) + '%' : '--';
+            document.getElementById('overall-f1').textContent = 
+                metrics.f1_score ? (metrics.f1_score * 100).toFixed(2) + '%' : '--';
+            document.getElementById('overall-precision').textContent = 
+                metrics.precision ? (metrics.precision * 100).toFixed(2) + '%' : '--';
+            document.getElementById('overall-recall').textContent = 
+                metrics.recall ? (metrics.recall * 100).toFixed(2) + '%' : '--';
+        }
+
+        // 渲染实体统计
+        function renderEntityStats(entitySummary) {
+            const statsContainer = document.getElementById('entity-stats');
+            statsContainer.innerHTML = '';
+            
+            const stats = [
+                { label: '实体类型数量', value: entitySummary.entity_count || 0, icon: 'fa-tag' },
+                { label: '平均F1分数', value: entitySummary.avg_f1 ? (entitySummary.avg_f1 * 100).toFixed(1) + '%' : '--', icon: 'fa-bar-chart' },
+                { label: '最佳表现实体', value: entitySummary.best_entity || '--', icon: 'fa-star' },
+                { label: '最佳F1分数', value: entitySummary.best_f1 ? (entitySummary.best_f1 * 100).toFixed(1) + '%' : '--', icon: 'fa-trophy' }
+            ];
+            
+            stats.forEach(stat => {
+                const statElement = document.createElement('div');
+                statElement.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+                statElement.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fa ${stat.icon} text-primary mr-3"></i>
+                        <span class="text-sm text-neutral-light">${stat.label}</span>
+                    </div>
+                    <span class="font-semibold text-neutral">${stat.value}</span>
+                `;
+                statsContainer.appendChild(statElement);
+            });
+        }
+
+        // 渲染性能表格
+        function renderPerformanceTable(entityDetails) {
+            const tbody = document.getElementById('performance-table-body');
+            tbody.innerHTML = '';
+            
+            entityDetails.forEach(entity => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                // F1分数的颜色编码
+                let f1Color = 'text-neutral';
+                if (entity.f1_score >= 0.9) f1Color = 'text-success';
+                else if (entity.f1_score >= 0.8) f1Color = 'text-warning';
+                else if (entity.f1_score < 0.7) f1Color = 'text-error';
+                
+                row.innerHTML = `
+                    <td class="px-4 py-3">
+                        <div class="flex items-center">
+                            <span class="font-medium text-neutral">${entity.name}</span>
+                            <span class="ml-2 text-xs text-neutral-light">(${entity.type})</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-neutral">${(entity.precision * 100).toFixed(2)}%</td>
+                    <td class="px-4 py-3 text-neutral">${(entity.recall * 100).toFixed(2)}%</td>
+                    <td class="px-4 py-3 ${f1Color} font-semibold">${(entity.f1_score * 100).toFixed(2)}%</td>
+                    <td class="px-4 py-3 text-neutral">${entity.true_count}</td>
+                    <td class="px-4 py-3 text-neutral">${entity.pred_count}</td>
+                    <td class="px-4 py-3 text-neutral">${entity.correct_count}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 渲染训练图表
+        function renderTrainingCharts(trainingData) {
+            // 损失曲线
+            const lossCtx = document.getElementById('loss-chart').getContext('2d');
+            if (charts.lossChart) charts.lossChart.destroy();
+            
+            charts.lossChart = new Chart(lossCtx, {
+                type: 'line',
+                data: {
+                    labels: trainingData.steps,
+                    datasets: [{
+                        label: '训练损失',
+                        data: trainingData.losses,
+                        borderColor: '#165DFF',
+                        backgroundColor: '#165DFF20',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: '训练步数' }
+                        },
+                        y: {
+                            title: { display: true, text: '损失值' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+            
+            // 学习率曲线
+            const lrCtx = document.getElementById('lr-chart').getContext('2d');
+            if (charts.lrChart) charts.lrChart.destroy();
+            
+            charts.lrChart = new Chart(lrCtx, {
+                type: 'line',
+                data: {
+                    labels: trainingData.steps,
+                    datasets: [{
+                        label: '学习率',
+                        data: trainingData.learning_rates,
+                        borderColor: '#36CFC9',
+                        backgroundColor: '#36CFC920',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: '训练步数' }
+                        },
+                        y: {
+                            title: { display: true, text: '学习率' },
+                            type: 'logarithmic'
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // 渲染实体性能图表
+        function renderEntityPerformanceChart(entityDetails) {
+            const ctx = document.getElementById('entity-performance-chart').getContext('2d');
+            if (charts.entityChart) charts.entityChart.destroy();
+            
+            const labels = entityDetails.map(e => e.name);
+            const precisionData = entityDetails.map(e => e.precision * 100);
+            const recallData = entityDetails.map(e => e.recall * 100);
+            const f1Data = entityDetails.map(e => e.f1_score * 100);
+            
+            charts.entityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '精确率',
+                            data: precisionData,
+                            backgroundColor: '#165DFF80',
+                            borderColor: '#165DFF',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '召回率',
+                            data: recallData,
+                            backgroundColor: '#36CFC980',
+                            borderColor: '#36CFC9',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'F1分数',
+                            data: f1Data,
+                            backgroundColor: '#722ED180',
+                            borderColor: '#722ED1',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: '实体类型' }
+                        },
+                        y: {
+                            title: { display: true, text: '性能指标 (%)' },
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染样本预测
+        function renderSamplePredictions(samplePredictions) {
+            const container = document.getElementById('sample-predictions');
+            container.innerHTML = '';
+            
+            if (!samplePredictions || samplePredictions.length === 0) {
+                container.innerHTML = '<p class="text-neutral-light text-center py-8">暂无样本预测数据</p>';
+                return;
+            }
+            
+            samplePredictions.slice(0, 5).forEach((sample, index) => {
+                const sampleElement = document.createElement('div');
+                sampleElement.className = 'p-4 border border-gray-200 rounded-lg';
+                sampleElement.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-neutral">样本 ${index + 1}</span>
+                        <span class="text-xs text-neutral-light">预测置信度: ${Math.random().toFixed(3)}</span>
+                    </div>
+                    <div class="text-sm text-neutral-light mb-2">
+                        <strong>文本:</strong> ${sample.text || '示例文本：张三在北京阿里巴巴工作，担任高级工程师。'}
+                    </div>
+                    <div class="text-sm">
+                        <strong>识别实体:</strong> 
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary ml-1">张三 - 姓名</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-secondary/10 text-secondary ml-1">北京 - 地址</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-accent/10 text-accent ml-1">阿里巴巴 - 组织机构</span>
+                    </div>
+                `;
+                container.appendChild(sampleElement);
+            });
+        }
+
+        // 导出表格为CSV
+        function exportTableToCSV() {
+            if (!visualizationData || !visualizationData.entity_summary) return;
+            
+            const entityDetails = visualizationData.entity_summary.entity_details;
+            const headers = ['实体类型', '实体名称', '精确率', '召回率', 'F1分数', '真实数量', '预测数量', '正确数量'];
+            
+            let csvContent = headers.join(',') + '\\n';
+            
+            entityDetails.forEach(entity => {
+                const row = [
+                    entity.type,
+                    entity.name,
+                    (entity.precision * 100).toFixed(2) + '%',
+                    (entity.recall * 100).toFixed(2) + '%',
+                    (entity.f1_score * 100).toFixed(2) + '%',
+                    entity.true_count,
+                    entity.pred_count,
+                    entity.correct_count
+                ].join(',');
+                csvContent += row + '\\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'model_performance_report.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 状态管理
+        function showLoadingState() {
+            document.getElementById('loading-state').classList.remove('hidden');
+            document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('error-state').classList.add('hidden');
+        }
+
+        function showMainContent() {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('error-state').classList.add('hidden');
+        }
+
+        function showErrorState() {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('error-state').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

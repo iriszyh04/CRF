@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实体识别 - BERT-NER-CRF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        neutral: '#1F2329',
+                        'neutral-light': '#86909C',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .entity-NAME { @apply bg-blue-100 text-blue-800 border-blue-200; }
+            .entity-ORG { @apply bg-green-100 text-green-800 border-green-200; }
+            .entity-LOC { @apply bg-purple-100 text-purple-800 border-purple-200; }
+            .entity-TITLE { @apply bg-orange-100 text-orange-800 border-orange-200; }
+            .entity-EDU { @apply bg-indigo-100 text-indigo-800 border-indigo-200; }
+            .entity-PRO { @apply bg-pink-100 text-pink-800 border-pink-200; }
+            .entity-CONT { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+            .entity-RACE { @apply bg-red-100 text-red-800 border-red-200; }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-braille text-primary text-2xl"></i>
+                <span class="text-xl font-bold text-neutral">实体识别与日志可视化系统</span>
+            </div>
+            <div class="hidden md:flex items-center space-x-6">
+                <a href="/" class="text-neutral-light hover:text-primary transition-colors">首页</a>
+                <a href="/entity" class="text-primary font-medium">实体识别</a>
+                <a href="/relation" class="text-neutral-light hover:text-primary transition-colors">关系抽取</a>
+                <a href="/visualization" class="text-neutral-light hover:text-primary transition-colors">日志可视化</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 页面标题 -->
+        <div class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-neutral mb-4">
+                <i class="fa fa-tags text-primary mr-3"></i>实体识别
+            </h1>
+            <p class="text-neutral-light text-lg max-w-2xl mx-auto">
+                使用 BERT-NER-CRF 模型自动识别文本中的实体，包括人名、机构名、地址、职位等信息
+            </p>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="max-w-4xl mx-auto mb-8">
+            <div class="bg-white rounded-xl p-6 card-shadow">
+                <div class="mb-4">
+                    <label for="inputText" class="block text-sm font-medium text-neutral mb-2">
+                        <i class="fa fa-edit mr-2"></i>请输入要分析的文本
+                    </label>
+                    <textarea 
+                        id="inputText" 
+                        class="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                        placeholder="例如：我叫张三，住在北京市朝阳区，在清华大学工作，担任软件工程师，联系电话是13800138000。"></textarea>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button 
+                        id="analyzeBtn" 
+                        class="flex-1 bg-primary hover:bg-primary/90 text-white font-medium py-3 px-6 rounded-lg transition-all flex items-center justify-center">
+                        <i class="fa fa-search mr-2"></i>开始识别
+                    </button>
+                    <button 
+                        id="exampleBtn" 
+                        class="sm:flex-none bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-lg transition-all flex items-center justify-center">
+                        <i class="fa fa-lightbulb-o mr-2"></i>加载示例
+                    </button>
+                    <button 
+                        id="clearBtn" 
+                        class="sm:flex-none bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-lg transition-all flex items-center justify-center">
+                        <i class="fa fa-trash mr-2"></i>清空
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果区域 -->
+        <div id="resultSection" class="max-w-4xl mx-auto" style="display: none;">
+            <!-- 统计信息 -->
+            <div class="bg-white rounded-xl p-6 card-shadow mb-6">
+                <h3 class="text-lg font-bold text-neutral mb-4">
+                    <i class="fa fa-bar-chart mr-2"></i>识别统计
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <div id="totalEntities" class="text-2xl font-bold text-primary">0</div>
+                        <div class="text-sm text-neutral-light">实体总数</div>
+                    </div>
+                    <div class="text-center">
+                        <div id="entityTypes" class="text-2xl font-bold text-secondary">0</div>
+                        <div class="text-sm text-neutral-light">实体类型</div>
+                    </div>
+                    <div class="text-center">
+                        <div id="textLength" class="text-2xl font-bold text-accent">0</div>
+                        <div class="text-sm text-neutral-light">文本长度</div>
+                    </div>
+                    <div class="text-center">
+                        <div id="processingTime" class="text-2xl font-bold text-orange-500">-</div>
+                        <div class="text-sm text-neutral-light">处理时间(ms)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标注文本 -->
+            <div class="bg-white rounded-xl p-6 card-shadow mb-6">
+                <h3 class="text-lg font-bold text-neutral mb-4">
+                    <i class="fa fa-text-width mr-2"></i>标注结果
+                </h3>
+                <div id="annotatedText" class="p-4 bg-gray-50 rounded-lg text-lg leading-relaxed border-2 border-gray-200">
+                    <!-- 标注后的文本将在这里显示 -->
+                </div>
+            </div>
+
+            <!-- 实体列表 -->
+            <div class="bg-white rounded-xl p-6 card-shadow">
+                <h3 class="text-lg font-bold text-neutral mb-4">
+                    <i class="fa fa-list mr-2"></i>识别的实体
+                </h3>
+                <div id="entityList" class="space-y-3">
+                    <!-- 实体列表将在这里显示 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 错误消息 -->
+        <div id="errorMessage" class="max-w-4xl mx-auto mt-6" style="display: none;">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fa fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <div>
+                        <h4 class="text-red-800 font-medium">处理错误</h4>
+                        <p id="errorText" class="text-red-600 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载指示器 -->
+        <div id="loadingIndicator" class="max-w-4xl mx-auto mt-6" style="display: none;">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center justify-center">
+                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-3"></div>
+                    <span class="text-blue-800">正在识别实体，请稍候...</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 实体类型映射
+        const entityTypeMap = {
+            'NAME': '姓名',
+            'ORG': '组织机构', 
+            'LOC': '地址',
+            'TITLE': '职位',
+            'EDU': '教育背景',
+            'PRO': '专业',
+            'CONT': '联系方式',
+            'RACE': '民族'
+        };
+
+        // DOM 元素
+        const inputText = document.getElementById('inputText');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const exampleBtn = document.getElementById('exampleBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const resultSection = document.getElementById('resultSection');
+        const errorMessage = document.getElementById('errorMessage');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        // 事件监听器
+        analyzeBtn.addEventListener('click', analyzeText);
+        exampleBtn.addEventListener('click', loadExample);
+        clearBtn.addEventListener('click', clearAll);
+        
+        // 分析文本
+        async function analyzeText() {
+            const text = inputText.value.trim();
+            
+            if (!text) {
+                showError('请输入要分析的文本');
+                return;
+            }
+            
+            showLoading(true);
+            hideError();
+            hideResults();
+            
+            const startTime = Date.now();
+            
+            try {
+                const response = await fetch('/api/ner', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+                
+                const data = await response.json();
+                const processingTime = Date.now() - startTime;
+                
+                if (data.success) {
+                    showResults(data, processingTime);
+                } else {
+                    showError(data.error || '识别失败');
+                }
+            } catch (error) {
+                showError('网络请求失败: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // 显示结果
+        function showResults(data, processingTime) {
+            // 更新统计信息
+            document.getElementById('totalEntities').textContent = data.entity_count || 0;
+            document.getElementById('entityTypes').textContent = new Set(data.entities.map(e => e.type)).size;
+            document.getElementById('textLength').textContent = data.text.length;
+            document.getElementById('processingTime').textContent = processingTime;
+            
+            // 生成标注文本
+            const annotatedText = generateAnnotatedText(data.text, data.entities);
+            document.getElementById('annotatedText').innerHTML = annotatedText;
+            
+            // 生成实体列表
+            const entityList = generateEntityList(data.entities);
+            document.getElementById('entityList').innerHTML = entityList;
+            
+            // 显示结果区域
+            resultSection.style.display = 'block';
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // 生成标注文本
+        function generateAnnotatedText(text, entities) {
+            let result = '';
+            let lastEnd = 0;
+            
+            // 按位置排序实体
+            const sortedEntities = entities.sort((a, b) => a.start - b.start);
+            
+            for (const entity of sortedEntities) {
+                // 添加实体前的文本
+                result += escapeHtml(text.substring(lastEnd, entity.start));
+                
+                // 添加标注的实体
+                result += `<span class="inline-block px-2 py-1 rounded-md text-sm font-medium border entity-${entity.type}" title="${entity.type_name}: ${entity.text}">
+                    ${escapeHtml(entity.text)}
+                    <span class="ml-1 text-xs opacity-75">[${entity.type_name}]</span>
+                </span>`;
+                
+                lastEnd = entity.end + 1;
+            }
+            
+            // 添加剩余文本
+            result += escapeHtml(text.substring(lastEnd));
+            
+            return result || '未识别到任何实体';
+        }
+        
+        // 生成实体列表
+        function generateEntityList(entities) {
+            if (entities.length === 0) {
+                return '<div class="text-center text-neutral-light py-8">未识别到任何实体</div>';
+            }
+            
+            // 按类型分组
+            const groupedEntities = {};
+            entities.forEach(entity => {
+                if (!groupedEntities[entity.type]) {
+                    groupedEntities[entity.type] = [];
+                }
+                groupedEntities[entity.type].push(entity);
+            });
+            
+            let result = '';
+            for (const [type, entityList] of Object.entries(groupedEntities)) {
+                result += `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium text-neutral mb-3 flex items-center">
+                            <span class="inline-block w-3 h-3 rounded-full entity-${type} mr-2"></span>
+                            ${entityTypeMap[type] || type} (${entityList.length})
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                `;
+                
+                entityList.forEach(entity => {
+                    result += `
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm entity-${type}" title="位置: ${entity.start}-${entity.end}">
+                            ${escapeHtml(entity.text)}
+                        </span>
+                    `;
+                });
+                
+                result += '</div></div>';
+            }
+            
+            return result;
+        }
+        
+        // 加载示例
+        async function loadExample() {
+            try {
+                const response = await fetch('/api/examples');
+                const examples = await response.json();
+                if (examples && examples.length > 0) {
+                    const randomExample = examples[Math.floor(Math.random() * examples.length)];
+                    inputText.value = randomExample;
+                }
+            } catch (error) {
+                console.error('加载示例失败:', error);
+                inputText.value = '我叫张三，住在北京市朝阳区，在清华大学工作，担任软件工程师，联系电话是13800138000。';
+            }
+        }
+        
+        // 清空所有内容
+        function clearAll() {
+            inputText.value = '';
+            hideResults();
+            hideError();
+        }
+        
+        // 显示/隐藏加载指示器
+        function showLoading(show) {
+            loadingIndicator.style.display = show ? 'block' : 'none';
+            analyzeBtn.disabled = show;
+            analyzeBtn.innerHTML = show ? 
+                '<i class="fa fa-spinner fa-spin mr-2"></i>识别中...' : 
+                '<i class="fa fa-search mr-2"></i>开始识别';
+        }
+        
+        // 显示错误消息
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        // 隐藏错误消息
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+        
+        // 隐藏结果
+        function hideResults() {
+            resultSection.style.display = 'none';
+        }
+        
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 页面加载完成后自动加载示例
+        document.addEventListener('DOMContentLoaded', function() {
+            // 可以在这里添加初始化代码
+        });
+    </script>
+</body>
+</html>
